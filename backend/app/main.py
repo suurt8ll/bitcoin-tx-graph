@@ -7,7 +7,7 @@ import requests
 import json
 import networkx as nx
 from typing import Optional
-from btc_types import TransactionInfo
+from backend.models.btc_types import TransactionInfo
 from networkx.readwrite import json_graph
 
 load_dotenv()

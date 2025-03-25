@@ -6,7 +6,6 @@ from typing import Optional
 from btc_types import TransactionInfo
 import networkx as nx
 from pyvis.network import Network
-import webbrowser
 
 # Load environment variables
 load_dotenv()
@@ -55,7 +54,7 @@ def process_transaction(
     current_depth: int = 0,
     visited: Optional[set[str]] = None,
     graph: Optional[nx.DiGraph] = None,
-) -> None:
+) -> nx.DiGraph:  # Corrected return type annotation
     """
     Recursively processes transactions up to the specified depth.
     Args:
@@ -72,21 +71,24 @@ def process_transaction(
 
     # Base cases
     if current_depth > max_depth:
-        return
+        return graph  # Return the graph even at max depth
     if txid in visited:
-        return
+        return graph  # Return the graph if already visited
     visited.add(txid)
 
     tx_info = get_transaction_info(txid)
     if not tx_info:
         print(f"⚠️ Could not retrieve transaction: {txid}")
-        return
+        return graph  # Return the graph even if tx_info is None
 
     print(f"\n{'-'*40}\nTransaction: {txid}\n{'-'*40}")
 
     # Process Inputs
     print("Inputs:")
     for vin in tx_info.get("vin", []):
+        if "txid" not in vin:  # Handle coinbase transactions
+            print("  🔹 Coinbase Transaction (No previous TX)")
+            continue
         prev_txid = vin["txid"]
         vout_index = vin["vout"]
 
@@ -100,22 +102,34 @@ def process_transaction(
             prev_address = prev_vout["scriptPubKey"]["address"]
             amount = prev_vout["value"]
             print(f"  🔹 From: {prev_address} (Amount: {amount:.8f} BTC)")
-            graph.add_edge(prev_txid, txid, amount=amount)
-        except IndexError:
-            print(f"  🔹 Invalid vout index {vout_index} for TX {prev_txid}")
+            graph.add_edge(
+                prev_txid, txid, amount=amount, label=f"{amount:.8f} BTC"
+            )  # Add label here
+        except (IndexError, KeyError) as e:
+            print(
+                f"  🔹 Invalid vout index {vout_index} for TX {prev_txid} or missing address: {e}"
+            )
+        except TypeError as e:
+            print(f"Type Error processing input {vin}: {e}")
 
     # Process Outputs
     print("\nOutputs:")
     for vout in tx_info.get("vout", []):
-        address = vout["scriptPubKey"]["address"]
-        value = vout["value"]
-        print(f"  🔸 To: {address} (Amount: {value:.8f} BTC)")
+        try:
+            address = vout["scriptPubKey"]["address"]
+            value = vout["value"]
+            print(f"  🔸 To: {address} (Amount: {value:.8f} BTC)")
+        except KeyError as e:
+            print(f"KeyError processing output {vout}: {e}")
 
     # Recurse into inputs if depth allows
     if current_depth < max_depth:
         for vin in tx_info.get("vin", []):
-            prev_txid = vin["txid"]
-            process_transaction(prev_txid, max_depth, current_depth + 1, visited, graph)
+            if "txid" in vin:  # Handle coinbase transactions
+                prev_txid = vin["txid"]
+                graph = process_transaction(
+                    prev_txid, max_depth, current_depth + 1, visited, graph
+                )
 
     return graph
 
@@ -165,16 +179,9 @@ def plot_graph(graph: nx.DiGraph) -> None:
         """
     )
 
-    # Add edge labels (BTC amounts)
-    for u, v, data in graph.edges(data=True):
-        pyvis_net.add_edge(u, v, title=f"{data['amount']:.8f} BTC")
-
     # Save and show the graph
     html_file_path = "transaction_graph.html"
     pyvis_net.show(html_file_path, notebook=False)
-    print(f"\nInteractive graph saved to: {html_file_path}")
-    print("Opening in default web browser...")
-    webbrowser.open(html_file_path)
 
 
 def main():

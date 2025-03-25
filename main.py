@@ -2,6 +2,7 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
+from btc_types import *
 
 # Load environment variables from .env file
 load_dotenv()
@@ -18,7 +19,7 @@ if not RPC_USER or not RPC_PASSWORD or not RPC_URL:
     exit(1)
 
 
-def call_rpc(method, params=[]):
+def call_rpc(method=str, params=[]):
     """Calls a Bitcoin RPC method using JSON-RPC."""
     auth = (RPC_USER, RPC_PASSWORD)
     headers = {"content-type": "application/json"}
@@ -47,7 +48,7 @@ def call_rpc(method, params=[]):
         return None
 
 
-def get_transaction_info(txid):
+def get_transaction_info(txid: str) -> TransactionInfo:
     """Fetches and returns information about a specific transaction."""
     try:
         # First, get the raw transaction hex

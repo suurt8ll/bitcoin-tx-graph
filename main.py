@@ -47,16 +47,40 @@ def call_rpc(method, params=[]):
         return None
 
 
-def main():
-    """Main function to fetch and print blockchain info."""
-    blockchain_info = call_rpc("getblockchaininfo")
+def get_transaction_info(txid):
+    """Fetches and returns information about a specific transaction."""
+    try:
+        # First, get the raw transaction hex
+        raw_tx = call_rpc("getrawtransaction", [txid])
+        if not raw_tx:
+            print(f"Error: Could not retrieve raw transaction for txid: {txid}")
+            return None
 
-    if blockchain_info:
-        print("Blockchain Information:")
-        for key, value in blockchain_info.items():
+        # Then, decode the raw transaction
+        decoded_tx = call_rpc("decoderawtransaction", [raw_tx])
+        if not decoded_tx:
+            print(f"Error: Could not decode raw transaction for txid: {txid}")
+            return None
+
+        return decoded_tx
+
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return None
+
+
+def main():
+    """Main function to get transaction info from user input."""
+    txid = input("Enter the transaction ID (txid): ")
+
+    transaction_info = get_transaction_info(txid)
+
+    if transaction_info:
+        print("\nTransaction Information:")
+        for key, value in transaction_info.items():
             print(f"  {key}: {value}")
     else:
-        print("Failed to retrieve blockchain information.")
+        print("Failed to retrieve transaction information.")
 
 
 if __name__ == "__main__":

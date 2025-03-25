@@ -1,3 +1,4 @@
+from typing import Optional
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,8 +7,7 @@ from dotenv import load_dotenv
 import requests
 import json
 import networkx as nx
-from typing import Optional
-from backend.models.btc_types import TransactionInfo
+from backend.models.transactions import TransactionInfo
 from networkx.readwrite import json_graph
 
 load_dotenv()
@@ -17,7 +17,6 @@ RPC_URL = os.getenv("BITCOIN_RPC_URL")
 
 app = FastAPI()
 
-# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -62,7 +61,12 @@ def get_transaction_info(txid: str) -> Optional[TransactionInfo]:
     if not raw_tx:
         return None
     decoded_tx = call_rpc("decoderawtransaction", [raw_tx])
-    return decoded_tx
+    if not decoded_tx:
+        return None
+    try:
+        return TransactionInfo(**decoded_tx)
+    except Exception:
+        return None
 
 
 def process_transaction(
@@ -84,26 +88,31 @@ def process_transaction(
     if not tx_info:
         return graph
 
-    graph.add_node(txid, **tx_info)  # Store full transaction details as node data
+    graph.add_node(txid, **tx_info.model_dump())
 
-    for vin in tx_info.get("vin", []):
-        prev_txid = vin.get("txid")
+    for vin in tx_info.vin:
+        prev_txid = vin.txid
         if not prev_txid:
             continue
 
         try:
             prev_tx = get_transaction_info(prev_txid)
-            scriptpubkey = prev_tx.get("vout")[vin["vout"]].get("scriptPubKey", {})
+            if not prev_tx:
+                continue
+
+            vout_index = vin.vout
+            prev_vout = prev_tx.vout[vout_index]
+            scriptpubkey = prev_vout.scriptPubKey
 
             edge_attrs = {
-                "from_address": scriptpubkey.get("address"),
-                "value": prev_tx["vout"][vin["vout"]].get("value"),
+                "from_address": scriptpubkey.address,
+                "value": prev_vout.value,
                 "txid": prev_txid,
             }
             graph.add_edge(prev_txid, txid, **edge_attrs)
 
-        except (KeyError, IndexError):
-            pass  # Handle missing vout index gracefully
+        except (IndexError, AttributeError):
+            continue
 
         if current_depth < max_depth:
             process_transaction(prev_txid, max_depth, current_depth + 1, visited, graph)
@@ -112,13 +121,15 @@ def process_transaction(
 
 
 @app.get("/api/v1/transaction/{txid}", status_code=200)
-async def fetch_transaction_graph(txid: str, depth: int = 10) -> dict:
+async def fetch_transaction_graph(txid: str, depth: int = 3) -> dict:
     if depth < 0:
         raise HTTPException(400, "Depth must be non-negative")
+    if depth > 5:
+        raise HTTPException(400, "Depth must not exceed 5 due to resource constraints")
 
     graph = process_transaction(txid, depth)
 
-    if not graph:
+    if not any(graph.nodes):
         raise HTTPException(404, "Transaction not found")
 
     return json_graph.node_link_data(graph)

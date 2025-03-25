@@ -1,12 +1,12 @@
-from typing import TypedDict
+from pydantic import BaseModel
 
 
-class ScriptSig(TypedDict):
+class ScriptSig(BaseModel):
     asm: str
     hex: str
 
 
-class VinItem(TypedDict):
+class VinItem(BaseModel):
     txid: str
     vout: int
     scriptSig: ScriptSig
@@ -14,7 +14,7 @@ class VinItem(TypedDict):
     sequence: int
 
 
-class ScriptPubKey(TypedDict):
+class ScriptPubKey(BaseModel):
     asm: str
     hex: str
     address: str
@@ -22,13 +22,13 @@ class ScriptPubKey(TypedDict):
     desc: str
 
 
-class VoutItem(TypedDict):
+class VoutItem(BaseModel):
     value: float
     n: int
     scriptPubKey: ScriptPubKey
 
 
-class TransactionInfo(TypedDict):
+class TransactionInfo(BaseModel):
     txid: str
     hash: str
     version: int

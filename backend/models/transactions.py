@@ -10,7 +10,7 @@ class VinItem(BaseModel):
     txid: str
     vout: int
     scriptSig: ScriptSig
-    txinwitness: list[str]
+    txinwitness: list[str] = []
     sequence: int
 
 

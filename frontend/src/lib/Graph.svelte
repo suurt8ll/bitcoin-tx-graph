@@ -22,8 +22,7 @@
         nodes: graphData.nodes.map((node) => ({
           data: { id: node.id, ...node.attributes },
         })),
-        // backend returns edges under "links" not "edges" key.
-        edges: graphData.links.map((edge) => ({
+        edges: graphData.edges.map((edge) => ({
           data: {
             source: edge.source,
             target: edge.target,

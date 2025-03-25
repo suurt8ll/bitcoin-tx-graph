@@ -138,7 +138,7 @@ def plot_graph(graph: nx.DiGraph) -> None:
     """Plots the transaction graph interactively."""
     # Convert NetworkX graph to PyVis graph
     pyvis_net = Network(
-        height="900px", width="100%", bgcolor="#ffffff", font_color="black"
+        height="950px", width="100%", bgcolor="#1a1a1a", font_color="white"
     )
     pyvis_net.from_nx(graph)
 

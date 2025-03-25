@@ -1,5 +1,5 @@
 requests
 python-dotenv
-matplotlib
 networkx
-pyvis
+fastapi
+uvicorn
